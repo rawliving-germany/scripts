@@ -1,0 +1,30 @@
+#!/bin/env/ruby
+
+# Makes every customer_entity's email-address record a newsletter_subscriber's
+# subscriber_mail, too. (Magento 2.1.9)
+
+# Copyright 2017 Felix Wolfsteller, licensed under the GPLv3+.
+
+require 'mysql2'
+
+if ARGV.count != 4
+  STDERR.puts "Need to be called as '#{$PROGRAM_NAME} <host> <user> <pass> <dbname>'"
+  exit 1
+end
+
+host, user, pass, dbname = ARGV
+
+client = Mysql2::Client.new(host: host, username: user, password: pass, database: dbname)
+
+unsubscribed_mail_query = "SELECT * "\
+                          "  FROM customer_entity "\
+                          "  WHERE email NOT IN "\
+                          "    (SELECT subscriber_email FROM newsletter_subscriber);"
+
+results = client.query unsubscribed_mail_query
+
+results.each do |row|
+  puts " INSERT into subscriber_email #{row.inspect}"
+end
+
+exit 0

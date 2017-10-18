@@ -1,4 +1,4 @@
-#!/bin/env/ruby
+#!/usr/bin/env ruby
 
 # Makes every customer_entity's email-address record a newsletter_subscriber's
 # subscriber_mail, too. (Magento 2.1.9)
@@ -24,7 +24,11 @@ unsubscribed_mail_query = "SELECT * "\
 results = client.query unsubscribed_mail_query
 
 results.each do |row|
-  puts " INSERT into subscriber_email #{row.inspect}"
+  customer_id = "\"#{row['entity_id']}\""
+  mail        = "\"#{row['email']}\""
+  new_subscriber_query = "INSERT into newsletter_subscriber (store_id, customer_id, subscriber_email, subscriber_status, subscriber_confirm_code) "\
+                         "            VALUES                (1    ,    #{customer_id}, #{mail}, 1, \"8ppx6xp29edf503l9jz9lqkfheffpt0s\");"
+  puts new_subscriber_query
 end
 
 exit 0

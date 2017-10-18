@@ -7,10 +7,12 @@
 
 require 'mysql2'
 
-if ARGV.count != 4
-  STDERR.puts "Need to be called as '#{$PROGRAM_NAME} <host> <user> <pass> <dbname>'"
+if ARGV.count != 4 && ARGV.count != 5
+  STDERR.puts "Need to be called as '#{$PROGRAM_NAME} <host> <user> <pass> <dbname> [one-at-a-time]'"
   exit 1
 end
+
+one_at_a_time = ARGV.count == 5
 
 host, user, pass, dbname = ARGV
 
@@ -23,12 +25,20 @@ unsubscribed_mail_query = "SELECT * "\
 
 results = client.query unsubscribed_mail_query
 
+puts "#{results.count} subscribers to add"
+
 results.each do |row|
   customer_id = "\"#{row['entity_id']}\""
   mail        = "\"#{row['email']}\""
   new_subscriber_query = "INSERT into newsletter_subscriber (store_id, customer_id, subscriber_email, subscriber_status, subscriber_confirm_code) "\
                          "            VALUES                (1    ,    #{customer_id}, #{mail}, 1, \"8ppx6xp29edf503l9jz9lqkfheffpt0s\");"
-  puts new_subscriber_query
+  if one_at_a_time
+    puts new_subscriber_query
+    client.query new_subscriber_query
+    exit 0
+  end
+
+  client.query new_subscriber_query
 end
 
 exit 0

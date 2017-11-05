@@ -30,7 +30,7 @@ puts "#{results.count} products to unhideshipdate"
 results.each do |row|
   entity_id = "\"#{row['entity_id']}\""
   nohide_query = "INSERT INTO catalog_product_entity_text (attribute_id, store_id, entity_id, value) "\
-                 "                  VALUES                (1100        ,        0, #{entity_id}, \"1\");"
+                 "                  VALUES                (1100        ,        0, #{entity_id}, \"0\");"
   if one_at_a_time
     puts nohide_query
     client.query nohide_query
@@ -40,6 +40,6 @@ results.each do |row|
   client.query nohide_query
 end
 
-# To change existing ones: UPDATE catalog_product_entity_text SET value="1" WHERE attribute_id = 1100 and value="0";
+# To change existing ones: UPDATE catalog_product_entity_text SET value="0" WHERE attribute_id = 1100 and value="1";
 
 exit 0

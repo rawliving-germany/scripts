@@ -1,0 +1,45 @@
+#!/usr/bin/env ruby
+
+# Makes nearly every product show its availability by setting nohideshipdate to YES
+# with some tough assumptions (Magento 2.1.9)
+
+# Copyright 2017 Felix Wolfsteller, licensed under the GPLv3+.
+
+require 'mysql2'
+
+if ARGV.count != 4 && ARGV.count != 5
+  STDERR.puts "Need to be called as '#{$PROGRAM_NAME} <host> <user> <pass> <dbname> [one-at-a-time]'"
+  exit 1
+end
+
+one_at_a_time = ARGV.count == 5
+
+host, user, pass, dbname = ARGV
+
+client = Mysql2::Client.new(host: host, username: user, password: pass, database: dbname)
+
+unset_entities = "SELECT * "\
+                 "  FROM catalog_product_entity "\
+                 "  WHERE entity_id NOT IN "\
+                 "    (SELECT entity_id FROM catalog_product_entity_text WHERE attribute_id = 1100);"
+
+results = client.query unset_entities
+
+puts "#{results.count} products to unhideshipdate"
+
+results.each do |row|
+  entity_id = "\"#{row['entity_id']}\""
+  nohide_query = "INSERT INTO catalog_product_entity_text (attribute_id, store_id, entity_id, value) "\
+                 "                  VALUES                (1100        ,        0, #{entity_id}, \"1\");"
+  if one_at_a_time
+    puts nohide_query
+    client.query nohide_query
+    exit 0
+  end
+
+  client.query nohide_query
+end
+
+# To change existing ones: UPDATE catalog_product_entity_text SET value="1" WHERE attribute_id = 1100 and value="0";
+
+exit 0

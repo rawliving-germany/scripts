@@ -1,0 +1,60 @@
+#!/usr/bin/env ruby
+
+# Queries two magento databases and displays product information
+# with some tough assumptions (Magento 1.5 vs Magento 2.1.9)
+
+# Copyright 2017 Felix Wolfsteller, licensed under the GPLv3+.
+
+require 'mysql2'
+require 'terminal-table'
+
+if ARGV.count != 10
+  STDERR.puts "Need to be called as '#{$PROGRAM_NAME} <host1> <port1> <user1> <pass1> <dbname1> <host2> <port2> <user2> <pass2> <dbname2>"
+  exit 1
+end
+
+host1, port1, user1, pass1, dbname1 = ARGV[0..4]
+host2, port2, user2, pass2, dbname2 = ARGV[5..10]
+
+client1 = Mysql2::Client.new(host: host1, port: port1, username: user1, password: pass1, database: dbname1)
+
+client2 = Mysql2::Client.new(host: host2, port: port2, username: user2, password: pass2, database: dbname2)
+
+# Find name attribute
+r_name_attr1 = client1.query "SELECT * FROM eav_attribute WHERE attribute_code = 'name' AND entity_type_id = 10;"
+name_attr1 = r_name_attr1.first['attribute_id']
+
+r_name_attr2 = client2.query "SELECT * FROM eav_attribute WHERE attribute_code = 'name' AND entity_type_id = 10;"
+name_attr2 = r_name_attr2.first['attribute_id']
+
+#r_products1 = client1.query "SELECT * FROM catalog_product_entity"
+r_names1    = client1.query "SELECT * FROM catalog_product_entity_varchar WHERE attribute_id = #{name_attr1};"
+r_names2    = client2.query "SELECT * FROM catalog_product_entity_varchar WHERE attribute_id = #{name_attr2};"
+
+id_name_map1 = r_names1.map{|p| [p['entity_id'], p['value']]}.to_h
+id_name_map2 = r_names2.map{|p| [p['entity_id'], p['value']]}.to_h
+
+table = Terminal::Table.new headings: ['id1', 'id2', 'name']
+
+id_name_map1.each do |k,v|
+  p2 = id_name_map2[k]
+  if p2
+    table << [k, k, v]
+  elsif n=id_name_map2.key(v)
+    table << [k, n, v]
+  else
+    table << [k, '', v]
+  end
+end
+id_name_map2.each do |k,v|
+  p1 = id_name_map1[k]
+  if p1
+    next
+  elsif o=id_name_map1.key(v)
+    table << [k, o, v]
+  else
+    table << ['', k, v]
+  end
+end
+
+puts table

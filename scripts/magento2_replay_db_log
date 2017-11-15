@@ -1,0 +1,24 @@
+#!/usr/bin/env ruby
+
+# Replays queries from a database log (Magento 2.2.1).
+# Copyright 2017 Felix Wolfsteller, licensed under the GPLv3+.
+
+# How To:
+# 1. Activate db logging
+# 2. Prepare a file with (parts of ...) the queries from db log file
+# 3. Deactivate logging
+# 4. Run script with file from 2 as input
+
+if ARGV.count != 4
+  STDERR.puts "Need to be called as '#{$PROGRAM_NAME} <host> <user> <pass> <dbname>'"
+  exit 1
+end
+
+host, user, pass, dbname = ARGV
+
+ARGF.readlines.each_with_index do |line, idx|
+  File.open("#{idx}.sql", 'w') {|f| f << "#{line}"}
+  File.open("#{idx}.out", 'w') {|f| f << "##{line}"}
+  puts "#{idx}"
+  `mysql -u #{user} --password=#{pass} --host=#{host} #{dbname} < #{idx}.sql >> #{idx}.out `
+end

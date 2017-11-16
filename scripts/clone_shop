@@ -1,10 +1,13 @@
 #!/bin/bash
 
-# Clone a magento
+# Clone a magento instance on the same host,
 # with some tough assumptions (Magento 1.5 vs Magento 2.1.9)
 # and naming conventions etcpp.
 # You'll need a configuration file in current working dir
 # with keys as below - or adjust your setup to follow the defaults.
+#
+# If you do supply an argument, enter interactive mode which will ask
+# sometimes for permission before actually messing up.
 
 # Copyright 2017 Felix Wolfsteller, licensed under the GPLv3+.
 
@@ -31,6 +34,11 @@ done < clone_shop.conf
 function sync_files {
   echo "Syncing files"
   rsync -a "/var/www/${config[old_instance_name]}.${config[domain]}/" "/var/www/${config[new_instance_name]}.${config[domain]}" --exclude "var/"
+}
+
+function adjust_app_conf {
+  echo "Adjust m2 configuration file"
+  sed -i "/var/www/${config[new_instance_name]}.${config[domain]}/app/etc/env.php" -e "s/${config[old_instance_name]}/${config[new_instance_name]}/g"
 }
 
 function create_db {
@@ -70,6 +78,7 @@ if [ $# -eq 0 ]
   then
   # Non-interactive. Yes we need refactoring here.
   sync_files
+  adjust_app_conf
   create_db
   sync_db
   adjust_db
@@ -87,6 +96,16 @@ elif [ "${sync_files_ynq}" == "q" ] ; then
   exit 1
 else
   echo "Skipping file sync"
+fi
+
+echo
+read -p "Adjust app conf (db)? y/n/q: " adjust_app_conf_ynq
+if [ "${adjust_app_conf_ynq}" == "y" ] ; then
+  adjust_app_conf
+elif [ "${adjust_app_conf_ynq}" == "q" ] ; then
+  exit 1
+else
+  echo "Skipping app conf"
 fi
 
 echo

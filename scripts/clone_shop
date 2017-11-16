@@ -66,13 +66,52 @@ function enable_nginx_site {
   ln -s "/etc/nginx/sites-available/${config[new_instance_name]}.${config[domain]}" "/etc/nginx/sites-enabled/${config[new_instance_name]}.${config[domain]}"
 }
 
-sync_files
-create_db
-sync_db
-adjust_db
-copy_nginx_conf
-adjust_nginx_conf
-enable_nginx_site
+if [ $# -eq 0 ]
+  then
+  # Non-interactive. Yes we need refactoring here.
+  sync_files
+  create_db
+  sync_db
+  adjust_db
+  copy_nginx_conf
+  adjust_nginx_conf
+  enable_nginx_site
 
+  exit 0
+fi
+
+read -p "Sync files? y/n/q: " sync_files_ynq
+if [ "${sync_files_ynq}" == "y" ] ; then
+  sync_files
+elif [ "${sync_files_ynq}" == "q" ] ; then
+  exit 1
+else
+  echo "Skipping file sync"
+fi
+
+echo
+read -p "Create and sync db y/n/q: " create_syncdb_ynq
+if [ "${create_syncdb_ynq}" == "y" ] ; then
+  create_db
+  sync_db
+  adjust_db
+elif [ "${create_syncdb_ynq}" == "q" ] ; then
+  exit 1
+else
+  echo "Skipping db stuff"
+fi
+
+echo
+read -p "Configure nginx y/n/q: " configure_nginx_ynq
+if [ "${configure_nginx_ynq}" == "y" ] ; then
+  copy_nginx_conf
+  adjust_nginx_conf
+  enable_nginx_site
+elif [ "${configure_nginx_ynq}" == "q" ] ; then
+  exit 1
+else
+  echo "Skipping nginx conf"
+fi
+
+# Exit with grace.
 exit 0
-

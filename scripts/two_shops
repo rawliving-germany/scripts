@@ -19,11 +19,17 @@ host2, port2, user2, pass2, dbname2 = ARGV[5..10]
 client1 = Mysql2::Client.new(host: host1, port: port1, username: user1, password: pass1, database: dbname1)
 client2 = Mysql2::Client.new(host: host2, port: port2, username: user2, password: pass2, database: dbname2)
 
-# Find name attribute
-r_name_attr1 = client1.query "SELECT * FROM eav_attribute WHERE attribute_code = 'name' AND entity_type_id = 10;"
-name_attr1 = r_name_attr1.first['attribute_id']
+def same_query(client1, client2, query)
+  [
+    client1.query(query),
+    client2.query(query)
+  ]
+end
 
-r_name_attr2 = client2.query "SELECT * FROM eav_attribute WHERE attribute_code = 'name' AND entity_type_id = 10;"
+# Find name attribute
+r_name_attr1, r_name_attr2 = same_query(client1, client2,
+                                        "SELECT * FROM eav_attribute WHERE attribute_code = 'name' AND entity_type_id = 10;")
+name_attr1 = r_name_attr1.first['attribute_id']
 name_attr2 = r_name_attr2.first['attribute_id']
 
 #r_products1 = client1.query "SELECT * FROM catalog_product_entity"

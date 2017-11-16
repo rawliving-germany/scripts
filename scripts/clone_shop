@@ -1,0 +1,78 @@
+#!/bin/bash
+
+# Clone a magento
+# with some tough assumptions (Magento 1.5 vs Magento 2.1.9)
+# and naming conventions etcpp.
+# You'll need a configuration file in current working dir
+# with keys as below - or adjust your setup to follow the defaults.
+
+# Copyright 2017 Felix Wolfsteller, licensed under the GPLv3+.
+
+set -euo pipefail
+
+typeset -A config # init array
+config=( # set default values in config array
+    [db_user]="user"
+    [db_password]="magento"
+    [old_instance_name]="old"
+    [new_instance_name]="magento_2.2.1"
+    [domain]="yourserver.com"
+)
+
+while read line
+do
+    if echo $line | grep -F = &>/dev/null
+    then
+        varname=$(echo "$line" | cut -d '=' -f 1)
+        config[$varname]=$(echo "$line" | cut -d '=' -f 2-)
+    fi
+done < clone_shop.conf
+
+function sync_files {
+  echo "Syncing files"
+  rsync -a "/var/www/${config[old_instance_name]}.${config[domain]}/" "/var/www/${config[new_instance_name]}.${config[domain]}" --exclude "var/"
+}
+
+function create_db {
+  echo "Creating db"
+  MYSQL_PWD="${config[db_password]}" mysql -u "${config[db_user]}" -e "create database ${config[new_instance_name]} charset utf8"
+}
+
+function sync_db {
+  echo "Syncing db"
+  export MYSQL_PWD="${config[db_password]}"
+  mysqldump -u "${config[db_user]}" "${config[old_instance_name]}" | mysql -u "${config[db_user]}" -D "${config[new_instance_name]}"
+}
+
+function adjust_db {
+  export MYSQL_PWD="${config[db_password]}"
+  mysql -u "${config[db_user]}" -D "${config[new_instance_name]}" -e "UPDATE core_config_data SET value='http://${config[new_instance_name]}.${config[domain]}' WHERE path='web/unsecure/base_url'"
+  mysql -u "${config[db_user]}" -D "${config[new_instance_name]}" -e "UPDATE core_config_data SET value='http://${config[new_instance_name]}.${config[domain]}' WHERE path='web/secure/base_url'"
+}
+
+function copy_nginx_conf {
+  echo "Copy nginx conf"
+  cp -an "/etc/nginx/sites-available/${config[old_instance_name]}.${config[domain]}" "/etc/nginx/sites-available/${config[new_instance_name]}.${config[domain]}"
+}
+
+function adjust_nginx_conf {
+  echo "Adjust nginx conf"
+  sed -i "/etc/nginx/sites-available/${config[new_instance_name]}.${config[domain]}" -e "s/${config[old_instance_name]}/${config[new_instance_name]}/g"
+  # replace the full server_name directive?
+}
+
+function enable_nginx_site {
+  echo "Enable nginx site"
+  ln -s "/etc/nginx/sites-available/${config[new_instance_name]}.${config[domain]}" "/etc/nginx/sites-enabled/${config[new_instance_name]}.${config[domain]}"
+}
+
+sync_files
+create_db
+sync_db
+adjust_db
+copy_nginx_conf
+adjust_nginx_conf
+enable_nginx_site
+
+exit 0
+

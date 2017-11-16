@@ -17,7 +17,6 @@ host1, port1, user1, pass1, dbname1 = ARGV[0..4]
 host2, port2, user2, pass2, dbname2 = ARGV[5..10]
 
 client1 = Mysql2::Client.new(host: host1, port: port1, username: user1, password: pass1, database: dbname1)
-
 client2 = Mysql2::Client.new(host: host2, port: port2, username: user2, password: pass2, database: dbname2)
 
 # Find name attribute

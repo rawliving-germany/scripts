@@ -1,0 +1,41 @@
+#!/usr/bin/env ruby
+
+# Equalizes stock levels of products (id taken from csv file),
+# with some tough assumptions (Magento 1.5 vs Magento 2.1.9).
+# Also, sets the is_in_stock accordingly.
+
+# Copyright 2017 Felix Wolfsteller, licensed under the GPLv3+.
+
+require 'mysql2'
+
+if ARGV.count != 10
+  STDERR.puts "Need to be called as '#{$PROGRAM_NAME} <host1> <port1> <user1> <pass1> <dbname1> <host2> <port2> <user2> <pass2> <dbname2>"
+  exit 1
+end
+
+host1, port1, user1, pass1, dbname1 = ARGV[0..4]
+host2, port2, user2, pass2, dbname2 = ARGV[5..10]
+
+client1 = Mysql2::Client.new(host: host1, port: port1, username: user1, password: pass1, database: dbname1)
+client2 = Mysql2::Client.new(host: host2, port: port2, username: user2, password: pass2, database: dbname2)
+
+def same_query(client1, client2, query)
+  [
+    client1.query(query),
+    client2.query(query)
+  ]
+end
+
+select_qty1 = client1.prepare("SELECT qty FROM cataloginventory_stock_item WHERE product_id=?")
+set_qty2_and_in_stock = client2.prepare("UPDATE cataloginventory_stock_item SET qty = ?, is_in_stock=? WHERE product_id=?")
+
+0.upto(10).each { ARGV.pop }
+
+ARGF.readlines.each do |l|
+  old_id, new_id = l.split(",")
+  qty = select_qty1.execute old_id
+  old_qty = qty.to_a.first['qty'].to_f
+  puts qty.to_a.first['qty'].to_f
+  in_stock = old_qty <= 0 ? '0' : '1'
+  up = set_qty2_and_in_stock.execute old_qty, in_stock, new_id
+end

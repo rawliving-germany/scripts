@@ -74,6 +74,11 @@ function enable_nginx_site {
   ln -s "/etc/nginx/sites-available/${config[new_instance_name]}.${config[domain]}" "/etc/nginx/sites-enabled/${config[new_instance_name]}.${config[domain]}"
 }
 
+function restart_nginx {
+  echo "Restarting nginx"
+  system nginx restart
+}
+
 if [ $# -eq 0 ]
   then
   # Non-interactive. Yes we need refactoring here.
@@ -85,6 +90,7 @@ if [ $# -eq 0 ]
   copy_nginx_conf
   adjust_nginx_conf
   enable_nginx_site
+  restart_nginx
 
   exit 0
 fi
@@ -109,7 +115,7 @@ else
 fi
 
 echo
-read -p "Create and sync db y/n/q: " create_syncdb_ynq
+read -p "Create and sync db? y/n/q: " create_syncdb_ynq
 if [ "${create_syncdb_ynq}" == "y" ] ; then
   create_db
   sync_db
@@ -121,7 +127,7 @@ else
 fi
 
 echo
-read -p "Configure nginx y/n/q: " configure_nginx_ynq
+read -p "Configure nginx? y/n/q: " configure_nginx_ynq
 if [ "${configure_nginx_ynq}" == "y" ] ; then
   copy_nginx_conf
   adjust_nginx_conf
@@ -130,6 +136,16 @@ elif [ "${configure_nginx_ynq}" == "q" ] ; then
   exit 1
 else
   echo "Skipping nginx conf"
+fi
+
+echo
+read -p "Restart nginx service? y/n/q: " restart_nginx_ynq
+if [ "${restart_nginx_ynq}" == "y" ] ; then
+  restart_nginx
+elif [ "${restart_nginx_ynq}" == "q" ] ; then
+  exit 1
+else
+  echo "Skipping nginx restart"
 fi
 
 # Exit with grace.

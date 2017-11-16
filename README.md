@@ -10,6 +10,8 @@ Clone the repo or download and done.
 
 * scripts/magento2_subscribe_everyone
   Magento2: make `newsletter_subscriber` rows for `customer_entity`s.
+* scripts/magento2_replay_db_log
+  Magento2: Replay all queries from db log and place result in files.
 
 ## Authors
 

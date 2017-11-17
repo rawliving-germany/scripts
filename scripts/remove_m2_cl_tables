@@ -1,0 +1,36 @@
+#!/usr/bin/env ruby
+
+# Drops all tables starting with m2_cl_* of a database.
+# In case of magento, these are tables used to keep migration states;
+
+# Copyright 2017 Felix Wolfsteller, licensed under the GPLv3+.
+
+require 'mysql2'
+
+if ARGV.count != 4
+  STDERR.puts "Need to be called as '#{$PROGRAM_NAME} <host> <user> <pass> <dbname>'"
+  exit 1
+end
+
+host, user, pass, dbname = ARGV
+
+client = Mysql2::Client.new(host: host, username: user, password: pass, database: dbname)
+
+tables = "SHOW TABLES;"
+
+r_tables = client.query tables
+
+puts "#{r_tables.count} tables found"
+
+start_with_m2_cl = lambda { |n| n.values.first.start_with? 'm2_cl' }
+table_names = r_tables.to_a.select(&start_with_m2_cl).map do |r|
+  r.values.first
+end
+
+table_names.each do |t|
+  drop_table_q = "DROP TABLE #{t}"
+  puts drop_table_q
+  client.query drop_table_q
+end
+
+exit 0

@@ -1,0 +1,164 @@
+#!/usr/bin/env ruby
+
+# Copyright 2017 Felix Wolfsteller
+# Released under the GPLv3+ .
+
+# Sets base price values of new magento2 shop with imported products given base price values of
+# other extension in old shop.
+
+# Expects three files:
+# baseprice_old: CSV file with content of:
+#
+# SELECT * FROM catalog_product_entity_varchar WHERE attribute_id IN (103, 1009, 1010, 1011, 1012) ORDER BY entity_id;
+# (where these attribute_ids are the old baseprice attributes)
+
+# The queries
+# new shop
+# SELECT * FROM catalog_product_entity_varchar WHERE attribute_id BETWEEN 1083 AND 1086 OR attribute_id = 103;
+# SELECT * FROM catalog_product_entity_decimal WHERE attribute_id BETWEEN 1083 AND 1086;
+
+
+$file_old     = "baseprice.out"
+$file_dec_new = "base_dec.out"
+$file_var_new = "base_var.out"
+
+Product = Struct.new(:id, :name, :prod_amount, :prod_unit, :ref_amount, :ref_unit)
+
+NEW_UNIT_MAP = {
+  '398' => 'kg',
+  '399' => 'g',
+  '400' => 'kg',
+  '401' => 'g',
+  '402' => 'mg',
+  '403' => 'l',
+  '404' => 'ml',
+  '405' => 'mg',
+  '406' => 'l',
+  '407' => 'ml',
+  '408' => 'Stk',
+  '409' => 'Stk'
+}
+NEW_PROD_UNIT_MAP = {
+  'g' =>   '399',
+  'kg' =>  '398',
+  'mg' =>  '405',
+  'l' =>   '406',
+  'ml' =>  '407',
+  'pcs' => '408'
+}
+NEW_REF_UNIT_MAP = {
+  'g' =>   '401',
+  'kg' =>  '400',
+  'mg' =>  '402',
+  'l' =>   '403',
+  'ml' =>  '404',
+  'pcs' => '409'
+}
+
+def get_old_products
+  products = {}
+  File.open($file_old).readlines.each do |line|
+    next if line.start_with? 'value_id'
+    _vid, _etid, attr_id, _sid, id, attr_value = line.split("\t").map(&:strip)
+    product = (products[id] ||= Product.new(id))
+
+    case attr_id
+    when '1009'
+      product.prod_amount = attr_value
+    when '1010'
+      product.prod_unit = attr_value
+    when '1011'
+      product.ref_amount = attr_value
+    when '1012'
+      product.ref_unit = attr_value
+    when '103'
+      product.name = attr_value
+    end
+  end
+  products
+end
+
+def get_new_products
+  products = {}
+  File.open($file_dec_new).readlines.each do |line|
+    next if line.start_with? 'value_id'
+    _vid, attr_id, _sid, id, attr_value = line.split("\t").map(&:strip)
+    product = (products[id] ||= Product.new(id))
+
+    case attr_id
+    when '1083'
+      product.prod_amount = attr_value
+    when '1085'
+      product.ref_amount = attr_value
+    end
+  end
+  File.open($file_var_new).readlines.each do |line|
+    next if line.start_with? 'value_id'
+    _vid, attr_id, _sid, id, attr_value = line.split("\t").map(&:strip)
+    product = (products[id] ||= Product.new(id))
+
+    case attr_id
+    when '103'
+      product.name = attr_value
+    when '1084'
+      product.prod_unit = attr_value
+    when '1085'
+      product.ref_unit = attr_value
+    end
+  end
+  products
+end
+
+old_products = get_old_products
+new_products = get_new_products
+
+old_complete_products = old_products.values.select do |p|
+  p.prod_amount && p.prod_unit && p.ref_amount && p.ref_unit
+end
+
+old_orphans = []
+matches = []
+
+old_complete_products.each do |o|
+  if o.name.to_s.strip == ''
+    puts "No name product: #{o.id}"
+    next
+  end
+
+  # Find id mapping.
+
+  # This should be done by sku or product_id / entity_id
+  n = new_products.values.find{|n| n.name == o.name}
+
+  #if n.nil?
+  #  n = new_products.values.find{|n| n.id = o.id}
+  #end
+  if n.nil?
+    puts "Could not find (new) product!"
+    puts "for: #{o} (#{new_products.values.find{|n| n.id == o.id}})"
+    #exit 1
+    old_orphans << o
+  elsif n.prod_unit && n.prod_amount && n.ref_unit && n.ref_amount
+    puts "New product already contains baseprice values!"
+  elsif n.prod_unit || n.prod_amount || n.ref_unit || n.ref_amount
+    puts "New product already contains (incomplete) baseprice value information!"
+  else
+    puts "found: #{o.id} -> #{n.id}"
+    matches << [o, n]
+  end
+end
+
+puts "Complete Products: #{old_complete_products.count}"
+puts "Orphans (no new product): #{old_orphans.count}"
+puts "Incomplete old products: #{old_products.count - old_complete_products.count}"
+puts "New Products: #{new_products.count}"
+puts "Matches: #{matches.count}"
+
+matches.each do |o, n|
+  puts "Missing prod_unit #{NEW_PROD_UNIT_MAP[o.prod_unit.downcase]};" if NEW_PROD_UNIT_MAP[o.prod_unit.downcase].nil?
+  puts "Missing ref_unit #{NEW_REF_UNIT_MAP[o.ref_unit.downcase]}" if NEW_REF_UNIT_MAP[o.ref_unit.downcase].nil?
+  puts "INSERT INTO catalog_product_entity_varchar (attribute_id, store_id, entity_id, value) VALUES (1084, 0, #{n.id}, #{NEW_PROD_UNIT_MAP[o.prod_unit.downcase]});"
+  puts "INSERT INTO catalog_product_entity_varchar (attribute_id, store_id, entity_id, value) VALUES (1086, 0, #{n.id}, #{NEW_REF_UNIT_MAP[o.ref_unit.downcase]});"
+  puts "INSERT INTO catalog_product_entity_decimal (attribute_id, store_id, entity_id, value) VALUES (1083, 0, #{n.id}, #{o.prod_amount});"
+  puts "INSERT INTO catalog_product_entity_decimal (attribute_id, store_id, entity_id, value) VALUES (1085, 0, #{n.id}, #{o.ref_amount});"
+end

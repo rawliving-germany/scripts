@@ -76,7 +76,7 @@ function enable_nginx_site {
 
 function restart_nginx {
   echo "Restarting nginx"
-  system nginx restart
+  systemctl nginx restart
 }
 
 if [ $# -eq 0 ]

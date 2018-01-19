@@ -50,6 +50,7 @@ function sync_db {
   echo "Syncing db"
   export MYSQL_PWD="${config[db_password]}"
   mysqldump -u "${config[db_user]}" "${config[old_instance_name]}" | mysql -u "${config[db_user]}" -D "${config[new_instance_name]}"
+  # mysqldbcopy
 }
 
 function adjust_db {
@@ -81,6 +82,9 @@ function restart_nginx {
 
 if [ $# -eq 0 ]
   then
+  echo "Cloning shop in noninteractive mode in 2 seconds."
+  echo "Abort using CTRL+C and run with -i parameter if you want finer"
+  echo " control about what's happening"
   # Non-interactive. Yes we need refactoring here.
   sync_files
   adjust_app_conf

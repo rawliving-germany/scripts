@@ -13,6 +13,18 @@
 
 set -euo pipefail
 
+DATE=$(date +%F)
+exec >  >(tee -ia clone_shop-$DATE.log)
+exec 2> >(tee -ia clone_shop-$DATE.log >>&2)
+
+conf_file="clone_shop.conf"
+if [ -f "$conf_file" ]
+then
+  echo "Reading configuration from $conf_file."
+else
+  echo "Configuration file $conf_file not found, assuming defaults"
+fi
+
 typeset -A config # init array
 config=( # set default values in config array
     [db_user]="user"
@@ -29,7 +41,7 @@ do
         varname=$(echo "$line" | cut -d '=' -f 1)
         config[$varname]=$(echo "$line" | cut -d '=' -f 2-)
     fi
-done < clone_shop.conf
+done < "$conf_file"
 
 function sync_files {
   echo "Syncing files"
